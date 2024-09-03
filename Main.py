@@ -58,7 +58,7 @@ class Main:
 
 		#Predict cell walls
 		pred = model.feed(image)
-		pred = BinaryMask (Utils.one_hot_vec(pred.get_binary_mask()))
+		pred = BinaryMask (Utils.one_hot_vec(pred))
 
 		cell_mask = np.array(pred.get_three_mask_image())
 

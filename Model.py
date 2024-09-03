@@ -56,7 +56,7 @@ class Model:
 			batch_images = batch_images.numpy()
 			for i in range(batch_masks.shape[0]):
 				inpt = tf.convert_to_tensor(batch_images[i])
-				pred_masks = self.feed(inpt).numpy()
+				pred_masks = self.feed(inpt)
 				
 				acc_per_img = accuracy_func(Utils.one_hot_vec(pred_masks),batch_masks[i])
 				tot_dice += acc_per_img
@@ -92,7 +92,7 @@ class TwoModelArch(Model):
 		
 		v = tf.concat(( tf.expand_dims(pred_wall[:,:,0], axis=-1), tf.expand_dims(pred_nuc[:,:,1], axis=-1), tf.expand_dims(pred_wall[:,:,1], axis=-1)), axis = -1)
 
-		return v
+		return v.numpy()
 
 
 
