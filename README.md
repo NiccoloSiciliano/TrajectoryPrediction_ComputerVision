@@ -11,7 +11,7 @@ This project focuses on the **classification** and **segmentation** of **White B
 - **Classification**:  
   1. **Arch1**: A simple CNN architecture for classifying WBCs from raw cell images.
   2. **Combined Image Classifier**: A variant of `Arch1` that uses combined input from the segmented mask and the original image.
-
+Models have to be downloaded from: https://drive.google.com/drive/folders/1-N9mb5mG_IlBru4mT2z65VMVEsPRzu4J?usp=drive_link
 ## Table of Contents
 - [Architecture Details](#architecture-details)
   - [Segmentation](#segmentation)
