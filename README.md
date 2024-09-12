@@ -4,6 +4,7 @@
 This project focuses on the **classification** and **segmentation** of **White Blood Cells (WBCs)** using deep learning models. The goal is to first segment WBCs from images and then classify them based on their type using different CNN-based architectures.
 
 ### Models:
+Models have to be downloaded from: https://drive.google.com/drive/folders/1-N9mb5mG_IlBru4mT2z65VMVEsPRzu4J?usp=drive_link
 - **Segmentation**:  
   1. **ReducedUnet**: A lightweight version of the well-known U-Net architecture for WBC segmentation.
   2. **DoubleDecArch**: A custom CNN model with an encoder-decoder architecture and a double decoder for enhanced segmentation.
@@ -11,7 +12,7 @@ This project focuses on the **classification** and **segmentation** of **White B
 - **Classification**:  
   1. **Arch1**: A simple CNN architecture for classifying WBCs from raw cell images.
   2. **Combined Image Classifier**: A variant of `Arch1` that uses combined input from the segmented mask and the original image.
-Models have to be downloaded from: https://drive.google.com/drive/folders/1-N9mb5mG_IlBru4mT2z65VMVEsPRzu4J?usp=drive_link
+
 ## Table of Contents
 - [Architecture Details](#architecture-details)
   - [Segmentation](#segmentation)
