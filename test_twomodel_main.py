@@ -17,5 +17,4 @@ if __name__ == "__main__":
 	nucleus_model_path = sys.argv[3]
 	test_path = sys.argv[4]
 
-	print()
-	print("Accuracy per pixel: ",Main.test_twomodel_seg(wall_model_path, nucleus_model_path, test_path))
+	Main.test_twomodel_seg(wall_model_path, nucleus_model_path, test_path)

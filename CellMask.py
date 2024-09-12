@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 from BinaryMask import BinaryMask
-
+from var import image_size
 tf.config.run_functions_eagerly(True)
 class CellMask:
 
@@ -9,7 +9,7 @@ class CellMask:
         #Load mask
         mask = tf.io.read_file(mask_path)
         mask = tf.image.decode_png(mask, channels=1)
-        mask = tf.image.resize(mask, [256, 256],method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        mask = tf.image.resize(mask, [image_size, image_size],method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         mask = tf.cast(mask, tf.uint8)    # Masks are often in integers
         self.mask = mask
 

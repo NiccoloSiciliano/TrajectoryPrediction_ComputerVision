@@ -6,3 +6,4 @@ n_classes = 3 if clas == "ALL" else 2
 
 activation  = "softmax"
 epochs = 1
+image_size = 256

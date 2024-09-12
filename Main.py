@@ -24,9 +24,9 @@ class Main:
 		test_dataset = Utils.create_dataset(test_path+"images", test_path+"masks")
 		test_dataset = test_dataset.shuffle(buffer_size=1000).batch(batch_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-
+		metrics = model.evaluate_model(test_dataset)
 		print()
-		print("Accuracy on test: ", model.evaluate_model(test_dataset))
+		print("Accuracy: ", metrics[0],"Dice: ", metrics[1], "IoU: ", metrics[2])
 
 	def train_model(train_path, val_path, working):
 		images_dir = train_path+'images'
@@ -112,4 +112,30 @@ class Main:
 		# Evaluate the model
 		test_dataset = Utils.create_dataset(test_path+"images", test_path+"masks")
 		test_dataset = test_dataset.shuffle(buffer_size=1000).batch(batch_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-		return model.evaluate_model(test_dataset)
+		
+		metrics = model.evaluate_model(test_dataset)
+		print()
+		print("Accuracy: ", metrics[0],"Dice: ", metrics[1], "IoU: ", metrics[2])
+		model = TwoModelArch(wall_model_path, nucleus_model_path,n_classes)
+		model.load_model()
+		image, mask = Utils.load_image(image_path,mask_path)
+
+		
+
+		#Predict cell walls
+		pred = model.feed(image)
+		pred = BinaryMask (Utils.one_hot_vec(pred))
+
+		cell_mask = np.array(pred.get_three_mask_image())
+
+		original_mask = CellMask(mask_path)
+		original_mask = (tf.cast(original_mask.get_mask_image(), tf.float32)).numpy()
+
+		cell_mask_res = cv2.cvtColor(cell_mask.astype(np.uint8),cv2.COLOR_GRAY2BGR)
+		original_mask_res = cv2.cvtColor(original_mask.astype(np.uint8),cv2.COLOR_GRAY2BGR)
+		image_res = (image.numpy()*255).astype(np.uint8)
+
+		result = np.hstack((image_res,original_mask_res, cell_mask_res))
+		print("Accuracy Point: ",Utils.accuracy(mask.numpy(), pred.get_binary_mask()))
+		cv2.imshow("One Model Architecture", result) 
+		cv2.waitKey(0)

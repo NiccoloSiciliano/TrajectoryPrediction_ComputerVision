@@ -3,13 +3,32 @@ from tensorflow.keras import layers, models
 from CellMask import CellMask
 import os
 from sklearn.cluster import KMeans
-from var import n_classes, clas, activation
+from var import n_classes, clas, activation, image_size
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
+from sklearn.metrics import precision_score, recall_score, f1_score
+import json
 tf.config.run_functions_eagerly(True)
 
+clas_map = None
+with open('../clas_map.json', 'r') as file:
+    clas_map = json.load(file)
 
+keys = []
+values = []
+for k in clas_map:
+    keys.append(k)
+    values.append(clas_map[k])
+    
+table = tf.lookup.StaticHashTable(
+    initializer=tf.lookup.KeyValueTensorInitializer(
+        keys=tf.constant(keys),
+        values=tf.constant(values),
+    ),
+    default_value=tf.constant(-1),
+    name="class_weight"
+)
+ 
 class Utils:
 
     def one_hot_vec(mask):
@@ -23,17 +42,50 @@ class Utils:
                 v[np.argmax(mask[i][j])] = 1
                 one_hot_vec[i].append(v)
         return np.array(one_hot_vec)
-
+    def classification_metrics(y_true, y_pred):
+        precision = precision_score(y_true, y_pred, average='weighted')
+        recall = recall_score(y_true, y_pred, average='weighted')
+        f1 = f1_score(y_true, y_pred, average='weighted')
+        return precision, recall, f1
     def create_classification_dataset(images_dir):
         dataset_datagen = ImageDataGenerator(rescale=1./255)
         dataset = dataset_datagen.flow_from_directory(
             images_dir,  # Path to training data
-            target_size=(256, 256),  # Resize images
+            target_size=(image_size, image_size),  # Resize images
             batch_size=32,
-            class_mode='categorical'  # Since there are multiple classes
+            class_mode='categorical',  # Since there are multiple classes
+            shuffle=False
         )
         return dataset
+    def load_image_class(image_path, mask_path):
+        w = h = 256
+        image = tf.io.read_file(image_path)
+        image = tf.image.decode_jpeg(image, channels=3)
+        image = tf.image.resize(image, [256, 256])
+        image = tf.cast(image, tf.uint8)
+        image_names = tf.strings.split(image_path, '/')
+        image_names = image_names[-1]
+        clas = table.lookup(image_names)
+        tf.debugging.assert_greater(
+            clas, 
+            0, 
+            message="Class value must be greater than 0"
+        )
+        # Load mask
+        mask = CellMask(mask_path)
+        pre_proc = Utils.three_classes if n_classes == 3 else Utils.nucleus_pred
+        image, mask = pre_proc(image, mask)
+        return image,mask,clas
 
+    def create_class_seg_dataset(images_dir, masks_dir):
+        image_paths = sorted([os.path.join(images_dir, fname) for fname in os.listdir(images_dir)])
+        mask_paths = sorted([os.path.join(masks_dir, fname) for fname in os.listdir(masks_dir)])
+        print(len(image_paths), len(mask_paths))
+        dataset = tf.data.Dataset.from_tensor_slices((image_paths, mask_paths))
+        dataset = dataset.map(lambda image_path, mask_path: Utils.load_image_class(image_path, mask_path))
+        dataset = dataset.map(lambda image, mask, clas: (image, clas, mask))
+
+        return dataset
     def nucleus_pred(image, mask):
         mask_wall = mask.get_cell_wall_mask()
         
@@ -50,24 +102,24 @@ class Utils:
         return image, mask.get_three_classes_mask().get_binary_mask()
     
     def load_image(image_path, mask_path):
-        w = h = 256
+        w = h = image_size
         image = tf.io.read_file(image_path)
         image = tf.image.decode_jpeg(image, channels=3)
-        image = tf.image.resize(image, [256, 256])
+        image = tf.image.resize(image, [image_size, image_size])
         image = tf.cast(image, tf.uint8)
     
         # Load mask
         mask = CellMask(mask_path)
         pre_proc = Utils.three_classes if n_classes == 3 else Utils.wall_pred if clas == "WALL" else Utils.nucleus_pred
-        print(pre_proc)
+        #print(pre_proc)
 
         return pre_proc(image, mask)
 
     def load_classification_image(image_path):
-        w = h = 256
+        w = h = image_size
         image = tf.io.read_file(image_path)
         image = tf.image.decode_jpeg(image, channels=3)
-        image = tf.image.resize(image, [256, 256])
+        image = tf.image.resize(image, [image_size,image_size])
         image =  tf.cast(image, tf.float32)/255.0
 
         return image
@@ -158,7 +210,39 @@ class Utils:
             dice_per_class.append(dice)
         if y_true.shape[-1] == 2:
             return dice_per_class[0]*0.3+ dice_per_class[1]*0.7
-        return dice_per_class[0]*0.1+ dice_per_class[1]*0.35 + dice_per_class[2]*0.55
+        return((dice_per_class[0]+ dice_per_class[1]+ dice_per_class[2])/3).numpy()
+
+    def compute_mean_iou(y_true, y_pred, n_classes, smooth=1e-6):
+        """
+        Computes the mean IoU for multi-class segmentation.
+
+        Args:
+        - y_true (tensor): Ground truth segmentation mask (one-hot encoded).
+        - y_pred (tensor): Predicted segmentation mask (logits or probabilities, softmaxed).
+        - n_classes (int): The number of classes in the segmentation task.
+        - smooth (float): A small smoothing constant to prevent division by zero.
+
+        Returns:
+        - mean_iou (tensor): The mean IoU score across all classes.
+        """
+        iou_per_class = []
+        
+        # Loop over each class to compute IoU separately
+        for i in range(n_classes):
+            true_class = tf.cast(y_true[..., i], dtype=tf.float32)
+            pred_class = tf.cast(y_pred[..., i], dtype=tf.float32)
+
+            # Compute IoU for the current class
+            intersection = tf.reduce_sum(tf.cast(true_class * pred_class, dtype=tf.float32))
+            union = tf.reduce_sum(tf.cast(true_class, dtype=tf.float32)) + tf.reduce_sum(tf.cast(pred_class, dtype=tf.float32)) - intersection
+
+            iou = (intersection + smooth) / (union + smooth)
+            iou_per_class.append(iou)
+        
+        # Mean IoU over all classes
+        mean_iou = tf.reduce_mean(iou_per_class)
+        
+        return mean_iou.numpy()
 
     def create_dataset(images_dir, masks_dir):
         image_paths = sorted([os.path.join(images_dir, fname) for fname in os.listdir(images_dir)])
