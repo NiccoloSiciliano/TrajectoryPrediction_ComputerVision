@@ -20,6 +20,7 @@ Models have to be downloaded from: https://drive.google.com/drive/folders/1-N9mb
 - [Usage](#usage)
   - [Training](#training)
   - [Testing](#testing)
+- [Datasets](#datasets)
 ## Architecture Details
 
 ### Segmentation
@@ -116,3 +117,5 @@ Models have to be downloaded from: https://drive.google.com/drive/folders/1-N9mb
   Replace:
   - `dataset_path`: Path to the dataset.
   - `model_path`: Path to the trained classification model.
+  ### Datasets
+  Datasets are available at this link: https://drive.google.com/drive/folders/1eNkV_ExvPcO_S-KmH7jIEzqFTGColeOq?usp=drive_link
